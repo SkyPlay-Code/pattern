@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PatternSafe Pro - Advanced Recovery</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            app: {
+              bg: '#09090b',
+              panel: '#18181b',
+              border: '#27272a',
+              text: '#e4e4e7',
+              muted: '#a1a1aa',
+              primary: '#6366f1',
+              primaryHover: '#4f46e5',
+              success: '#10b981',
+              danger: '#ef4444',
+              dangerHover: '#dc2626'
+            }
+          },
+          animation: {
+            'fade-out': 'fadeOut 0.25s ease-out forwards',
+            'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            fadeOut: {
+              '0%': { opacity: 1, transform: 'scale(1)' },
+              '100%': { opacity: 0, transform: 'scale(0.95)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+    body {
+      background-color: #09090b;
+      color: #e4e4e7;
+      overflow: hidden;
+    }
+
+    /* Grid Node Styles */
+    .grid-node {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .grid-node.state-neutral { background: #27272a; color: #71717a; border: 1px solid #3f3f46; }
+    .grid-node.state-include { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.2); }
+    .grid-node.state-exclude { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.2); text-decoration: line-through; }
+
+    /* Canvas Drawing Area */
+    .touch-none { touch-action: none; }
+    
+    /* Mobile Tab Active State */
+    .tab-active { color: #6366f1 !important; border-bottom: 2px solid #6366f1; }
+    
+    /* Layout heights */
+    .h-app { height: 100vh; height: 100dvh; }
+  </style>
+</head>
+<body class="flex flex-col h-app antialiased selection:bg-app-primary selection:text-white">
+
+  <!-- ================= TOP NAVIGATION ================= -->
+  <header class="h-16 shrink-0 border-b border-app-border bg-app-panel/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base leading-tight tracking-tight">PatternSafe Pro</h1>
+        <p class="text-[10px] text-app-muted uppercase tracking-wider font-semibold">Advanced Recovery Engine</p>
+      </div>
+    </div>
+    
+    <!-- Cooldown Header Widget -->
+    <div id="headerCooldown" class="flex items-center gap-3 bg-app-bg border border-app-border rounded-xl px-3 py-1.5">
+      <div class="flex items-center gap-2">
+        <i id="headerTimerIcon" class="fa-solid fa-clock text-app-muted"></i>
+        <div class="flex flex-col">
+          <span class="text-[9px] text-app-muted uppercase leading-none mb-0.5">Cooldown Status</span>
+          <span id="headerTimerText" class="font-mono text-xs sm:text-sm font-bold text-app-success leading-none">Ready</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MOBILE TAB NAVIGATION ================= -->
+  <div id="mobileTabs" class="h-12 shrink-0 bg-app-panel border-b border-app-border flex md:hidden z-40">
+    <button data-tab="filters" class="flex-1 text-xs font-semibold text-app-muted transition">
+      <i class="fa-solid fa-sliders mr-1"></i> Filters
+    </button>
+    <button data-tab="gallery" class="flex-1 text-xs font-semibold text-app-muted tab-active transition">
+      <i class="fa-solid fa-grip mr-1"></i> Gallery
+    </button>
+    <button data-tab="dashboard" class="flex-1 text-xs font-semibold text-app-muted transition">
+      <i class="fa-solid fa-clock-rotate-left mr-1"></i> History
+    </button>
+  </div>
+
+  <!-- ================= MAIN APP SHELL ================= -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- ================= LEFT PANEL: FILTERS & SKETCH ================= -->
+    <aside id="panelFilters" class="w-full md:w-80 shrink-0 bg-app-bg border-r border-app-border flex flex-col h-full overflow-y-auto transition-transform duration-300 absolute md:static inset-0 z-30 -translate-x-full md:translate-x-0">
+      <div class="p-5 space-y-8 pb-24 md:pb-5">
+        
+        <!-- Section: Sketch & Search -->
+        <section>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-pen-nib text-app-primary"></i> Sketch Filter
+            </h2>
+            <button id="btnClearSketch" class="text-[10px] uppercase font-bold text-app-muted hover:text-white bg-app-panel px-2 py-1 rounded border border-app-border transition">Clear</button>
+          </div>
+          <div class="bg-app-panel rounded-2xl p-4 border border-app-border shadow-inner">
+            <div class="flex justify-center mb-3">
+              <canvas id="sketchCanvas" width="220" height="220" class="w-[220px] h-[220px] touch-none rounded-xl bg-[#09090b] border border-app-border shadow-sm cursor-crosshair"></canvas>
+            </div>
+            <div class="bg-app-bg rounded-lg p-2 border border-app-border text-center">
+              <span class="text-[10px] text-app-muted uppercase">Sketched Sequence</span>
+              <div id="sketchSequenceLabel" class="font-mono text-app-primary font-bold text-sm tracking-widest min-h-[20px]">-</div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+              <label for="sketchMatchType" class="text-[11px] text-app-muted flex-1">Match Type:</label>
+              <select id="sketchMatchType" class="bg-app-bg border border-app-border text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-app-primary">
+                <option value="contains">Contains Sequence</option>
+                <option value="starts">Starts With</option>
+                <option value="exact">Exact Match</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Pattern Length -->
+        <section>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-ruler-horizontal text-app-primary"></i> Dot Length
+            </h2>
+            <span id="lengthDisplay" class="text-xs font-mono font-bold text-app-primary bg-app-primary/10 px-2 py-0.5 rounded border border-app-primary/20">5-9</span>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-1">
+              <span class="text-[10px] text-app-muted uppercase block mb-1">Min Length</span>
+              <input type="range" id="rangeMin" min="4" max="9" value="5" class="w-full accent-app-primary cursor-pointer">
+            </div>
+            <div class="flex-1">
+              <span class="text-[10px] text-app-muted uppercase block mb-1">Max Length</span>
+              <input type="range" id="rangeMax" min="4" max="9" value="9" class="w-full accent-app-primary cursor-pointer">
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Advanced Inclusion/Exclusion Matrix -->
+        <section>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-table-cells text-app-primary"></i> Force Constraints
+            </h2>
+            <button id="btnResetMatrix" class="text-[10px] uppercase font-bold text-app-muted hover:text-white transition" title="Reset Matrix">
+              <i class="fa-solid fa-rotate-right"></i> Reset
+            </button>
+          </div>
+          <p class="text-[11px] text-app-muted mb-3 leading-relaxed">
+            Click dots to toggle states:<br>
+            <span class="inline-block w-2 h-2 rounded-full bg-app-success mr-1"></span><span class="text-white">Must Include</span> &nbsp;
+            <span class="inline-block w-2 h-2 rounded-full bg-app-danger mr-1"></span><span class="text-white">Must NOT Include</span>
+          </p>
+          <div class="grid grid-cols-3 gap-2 w-full max-w-[200px] mx-auto">
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="1">1</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="2">2</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="3">3</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="4">4</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="5">5</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="6">6</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="7">7</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="8">8</button>
+            <button class="matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110" data-dot="9">9</button>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+
+    <!-- ================= CENTER PANEL: GALLERY ================= -->
+    <main id="panelGallery" class="flex-1 flex flex-col bg-[#0f0f13] h-full relative z-20 overflow-hidden">
+      
+      <!-- Gallery Status Bar -->
+      <div class="p-4 border-b border-app-border bg-app-panel/50 backdrop-blur shrink-0 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            Result Gallery
+            <span id="badgeGalleryCount" class="bg-app-primary/20 text-app-primary border border-app-primary/30 px-2 py-0.5 rounded-full text-xs font-mono">0</span>
+          </h2>
+          <p class="text-[11px] text-app-muted mt-0.5" id="gallerySubtitle">Showing loaded matches excluding failed &amp; hidden items</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnRefreshGallery" class="px-3 py-1.5 rounded-lg bg-app-bg border border-app-border text-xs font-semibold text-app-muted hover:text-white transition flex items-center gap-1.5" title="Refresh/Apply Filters">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Grid -->
+      <div id="galleryContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6 relative">
+        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          <!-- Pattern Cards injected here via JS -->
+        </div>
+        
+        <!-- Loading Sentinel -->
+        <div id="gallerySentinel" class="py-12 flex flex-col items-center justify-center text-app-muted">
+          <i class="fa-solid fa-circle-notch fa-spin text-2xl text-app-primary mb-3"></i>
+          <span class="text-xs font-medium">Scanning pattern space...</span>
+        </div>
+        <!-- End of Results -->
+        <div id="galleryEnd" class="py-12 hidden flex-col items-center justify-center text-app-muted">
+          <i class="fa-solid fa-flag-checkered text-2xl mb-2 opacity-50"></i>
+          <span class="text-xs">All matching possibilities explored.</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- ================= RIGHT PANEL: DASHBOARD / HISTORY ================= -->
+    <aside id="panelDashboard" class="w-full md:w-80 shrink-0 bg-app-panel border-l border-app-border h-full flex flex-col transition-transform duration-300 absolute md:static inset-0 translate-x-full md:translate-x-0 z-30">
+      
+      <!-- Big Cooldown Box -->
+      <div class="p-5 border-b border-app-border bg-gradient-to-b from-app-bg to-app-panel">
+        <h2 class="text-xs font-bold text-app-muted uppercase tracking-wider mb-3">Safe Folder Cooldown</h2>
+        <div id="mainCooldownWidget" class="bg-app-bg border border-app-border rounded-2xl p-5 flex flex-col items-center text-center shadow-lg transition-colors duration-300">
+          <i id="mainCooldownIcon" class="fa-solid fa-unlock-keyhole text-3xl text-app-success mb-3"></i>
+          <div id="mainCooldownTime" class="font-mono text-3xl font-black text-white tracking-tight mb-1">READY</div>
+          <p id="mainCooldownText" class="text-xs text-app-muted">You can test a pattern now.</p>
+          
+          <div class="w-full flex gap-2 mt-4">
+            <button id="btnManualLock" class="flex-1 px-3 py-2 rounded-xl bg-app-danger/10 hover:bg-app-danger/20 border border-app-danger/30 text-app-danger text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-ban"></i> 1hr Lockout
+            </button>
+            <button id="btnClearLock" class="hidden px-3 py-2 rounded-xl bg-app-panel hover:bg-app-border border border-app-border text-app-muted hover:text-white text-xs font-bold transition items-center justify-center gap-1.5" title="Clear Cooldown">
+              <i class="fa-solid fa-unlock"></i> Unlock
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs: Failed vs Discarded -->
+      <div class="flex border-b border-app-border shrink-0 bg-app-bg">
+        <button id="tabFailed" class="flex-1 py-3 text-xs font-bold text-white border-b-2 border-app-danger transition">
+          Failed (<span id="countFailed">0</span>)
+        </button>
+        <button id="tabDiscarded" class="flex-1 py-3 text-xs font-bold text-app-muted border-b-2 border-transparent hover:text-white transition">
+          Hidden (<span id="countDiscarded">0</span>)
+        </button>
+      </div>
+
+      <!-- Lists Container -->
+      <div class="flex-1 overflow-y-auto p-4 bg-app-bg relative">
+        <!-- Failed List -->
+        <div id="viewFailed" class="space-y-2 block"></div>
+
+        <!-- Discarded List -->
+        <div id="viewDiscarded" class="space-y-2 hidden"></div>
+      </div>
+      
+      <!-- Reset Actions -->
+      <div class="p-4 border-t border-app-border bg-app-panel shrink-0">
+        <button id="btnResetHistory" class="w-full py-2.5 rounded-xl bg-app-bg border border-app-border hover:border-app-danger/50 hover:text-app-danger text-app-muted text-xs font-bold transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-trash-can"></i> Clear All History &amp; Unhide
+        </button>
+      </div>
+
+    </aside>
+
+  </div> <!-- End Main Shell -->
+
+  <!-- Toast Notification System -->
+  <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ================= APPLICATION LOGIC (JS) ================= -->
+  <script>
+    /* ==========================================================================
+       1. STATE MANAGEMENT (LocalStorage)
+       ========================================================================== */
+    const STORAGE_KEY = 'patternsafe_pro_state';
+    
+    let appState = {
+      failed: [],      // Array of string sequences e.g. "159637"
+      discarded: [],   // Array of string sequences
+      cooldownEnd: 0   // Timestamp (ms)
+    };
+
+    // Fast lookup sets synced with appState
+    let failedSet = new Set();
+    let discardedSet = new Set();
+
+    function syncSets() {
+      failedSet = new Set(appState.failed);
+      discardedSet = new Set(appState.discarded);
+    }
+
+    function loadState() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (data) {
+          const parsed = JSON.parse(data);
+          appState = {
+            failed: Array.isArray(parsed.failed) ? parsed.failed : [],
+            discarded: Array.isArray(parsed.discarded) ? parsed.discarded : [],
+            cooldownEnd: Number(parsed.cooldownEnd) || 0
+          };
+        }
+      } catch (e) {
+        console.error("Error loading state", e);
+      }
+      syncSets();
+    }
+
+    function saveState() {
+      syncSets();
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.error("Error saving state", e);
+      }
+      updateDashboardUI();
+    }
+
+    function isPatternExcluded(patternArr) {
+      const str = patternArr.join('');
+      return failedSet.has(str) || discardedSet.has(str);
+    }
+
+    /* ==========================================================================
+       2. ANDROID RULES ENGINE & CONSTANTS
+       ========================================================================== */
+    const COLLINEAR_JUMPS = {
+      '1,3': 2, '3,1': 2,
+      '4,6': 5, '6,4': 5,
+      '7,9': 8, '9,7': 8,
+      '1,7': 4, '7,1': 4,
+      '2,8': 5, '8,2': 5,
+      '3,9': 6, '9,3': 6,
+      '1,9': 5, '9,1': 5,
+      '3,7': 5, '7,3': 5
+    };
+
+    function isValidAndroidMove(curr, next, visitedMask) {
+      if ((visitedMask & (1 << next)) !== 0) return false;
+      const mid = COLLINEAR_JUMPS[`${curr},${next}`];
+      if (mid !== undefined) {
+        return (visitedMask & (1 << mid)) !== 0;
+      }
+      return true;
+    }
+
+    /* ==========================================================================
+       3. FILTER ENGINE & OPTIMIZED DFS GENERATOR
+       ========================================================================== */
+    let filters = {
+      minLen: 5,
+      maxLen: 9,
+      mustInclude: new Set(),
+      mustExclude: new Set(),
+      sequence: '',
+      matchType: 'contains' // contains, exact, starts
+    };
+
+    let activeGenerator = null;
+    let isGenerating = false;
+    let galleryCount = 0;
+    const BATCH_SIZE = 36;
+
+    function* generatePatterns() {
+      const { minLen, maxLen, mustInclude, mustExclude, sequence, matchType } = filters;
+      const mustMask = Array.from(mustInclude).reduce((acc, dot) => acc | (1 << dot), 0);
+      const mustCount = mustInclude.size;
+
+      // Early abort if a required dot is also excluded
+      for (let dot of mustInclude) {
+        if (mustExclude.has(dot)) return;
+      }
+
+      // Early abort if sequence contains an excluded dot
+      if (sequence.length > 0) {
+        for (let ch of sequence) {
+          if (mustExclude.has( Number(ch) )) return;
+        }
+        if (matchType === 'exact' && (sequence.length < minLen || sequence.length > maxLen)) {
+          return;
+        }
+        if (sequence.length > maxLen) return;
+      }
+
+      function* dfs(path, visitedMask) {
+        const len = path.length;
+
+        // Prefix pruning for 'starts' and 'exact'
+        if (sequence.length > 0 && (matchType === 'starts' || matchType === 'exact')) {
+          const checkIdx = len - 1;
+          if (checkIdx < sequence.length) {
+            if (String(path[checkIdx]) !== sequence[checkIdx]) return;
+          } else if (matchType === 'exact') {
+            return;
+          }
+        }
+
+        // Prune if remaining steps cannot satisfy all remaining mustInclude dots
+        if (mustCount > 0) {
+          let missingMust = 0;
+          for (let dot of mustInclude) {
+            if ((visitedMask & (1 << dot)) === 0) missingMust++;
+          }
+          if (missingMust > (maxLen - len)) return;
+        }
+
+        // Check if current path qualifies as a result
+        if (len >= minLen && len <= maxLen) {
+          let qualifies = true;
+
+          if ((visitedMask & mustMask) !== mustMask) {
+            qualifies = false;
+          }
+
+          if (qualifies && sequence.length > 0) {
+            const pathStr = path.join('');
+            if (matchType === 'exact' && pathStr !== sequence) qualifies = false;
+            else if (matchType === 'starts' && !pathStr.startsWith(sequence)) qualifies = false;
+            else if (matchType === 'contains' && !pathStr.includes(sequence)) qualifies = false;
+          }
+
+          if (qualifies && !isPatternExcluded(path)) {
+            yield path.slice();
+          }
+        }
+
+        if (len >= maxLen) return;
+
+        const curr = path[len - 1];
+        for (let next = 1; next <= 9; next++) {
+          if (mustExclude.has(next)) continue;
+          if (isValidAndroidMove(curr, next, visitedMask)) {
+            path.push(next);
+            yield* dfs(path, visitedMask | (1 << next));
+            path.pop();
+          }
+        }
+      }
+
+      for (let start = 1; start <= 9; start++) {
+        if (!mustExclude.has(start)) {
+          yield* dfs([start], 1 << start);
+        }
+      }
+    }
+
+    /* ==========================================================================
+       4. UI LOGIC: GALLERY RENDERING & INFINITE SCROLL
+       ========================================================================== */
+    const galleryContainer = document.getElementById('galleryContainer');
+    const galleryGrid = document.getElementById('galleryGrid');
+    const badgeGalleryCount = document.getElementById('badgeGalleryCount');
+    const gallerySentinel = document.getElementById('gallerySentinel');
+    const galleryEnd = document.getElementById('galleryEnd');
+
+    function resetAndFilterGallery() {
+      isGenerating = false;
+      galleryGrid.innerHTML = '';
+      galleryCount = 0;
+      badgeGalleryCount.textContent = '0';
+      gallerySentinel.classList.remove('hidden');
+      galleryEnd.classList.add('hidden');
+      galleryEnd.classList.remove('flex');
+      galleryContainer.scrollTop = 0;
+      
+      activeGenerator = generatePatterns();
+      loadNextGalleryBatch();
+    }
+
+    function isSentinelVisible() {
+      const containerRect = galleryContainer.getBoundingClientRect();
+      const sentinelRect = gallerySentinel.getBoundingClientRect();
+      return sentinelRect.top <= containerRect.bottom + 300;
+    }
+
+    function loadNextGalleryBatch() {
+      if (!activeGenerator || isGenerating) return;
+      isGenerating = true;
+
+      requestAnimationFrame(() => {
+        let count = 0;
+        const fragment = document.createDocumentFragment();
+        const canvasesToRender = [];
+        const startTime = performance.now();
+        
+        // Time-budgeted loop so heavy filtering never freezes the main thread
+        while (count < BATCH_SIZE && (performance.now() - startTime) < 16) {
+          const res = activeGenerator.next();
+          if (res.done) {
+            activeGenerator = null;
+            break;
+          }
+          
+          const { card, canvas, pattern } = createPatternCard(res.value);
+          fragment.appendChild(card);
+          canvasesToRender.push({ canvas, pattern });
+          count++;
+        }
+
+        if (count > 0) {
+          galleryGrid.appendChild(fragment);
+          galleryCount += count;
+          badgeGalleryCount.textContent = galleryCount.toLocaleString();
+          
+          // Render canvases AFTER appending (using stored references)
+          canvasesToRender.forEach(({ canvas, pattern }) => {
+            renderPatternOnCanvas(canvas, pattern);
+          });
+        }
+
+        isGenerating = false;
+
+        if (!activeGenerator) {
+          gallerySentinel.classList.add('hidden');
+          if (galleryCount === 0) {
+            galleryGrid.innerHTML = `
+              <div class="col-span-full py-16 text-center text-app-muted bg-app-panel/30 rounded-2xl border border-app-border border-dashed">
+                <i class="fa-solid fa-filter-circle-xmark text-3xl mb-3 opacity-50"></i>
+                <p class="text-sm font-semibold text-white">No patterns found</p>
+                <p class="text-xs mt-1">Try relaxing your filters or check if matching patterns were Hidden.</p>
+              </div>
+            `;
+          } else {
+            galleryEnd.classList.remove('hidden');
+            galleryEnd.classList.add('flex');
+          }
+        } else if (isSentinelVisible()) {
+          // Continue loading if the viewport isn't filled yet or if a time slice yielded early
+          loadNextGalleryBatch();
+        }
+      });
+    }
+
+    // Intersection Observer scoped to galleryContainer + scroll fallback
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadNextGalleryBatch();
+    }, { root: galleryContainer, rootMargin: '300px' });
+    io.observe(gallerySentinel);
+
+    galleryContainer.addEventListener('scroll', () => {
+      if (activeGenerator && !isGenerating && isSentinelVisible()) {
+        loadNextGalleryBatch();
+      }
+    }, { passive: true });
+
+    function createPatternCard(pattern) {
+      const card = document.createElement('div');
+      const seqStr = pattern.join('');
+      card.id = `card-${seqStr}`;
+      card.className = 'bg-app-bg border border-app-border rounded-2xl p-4 flex flex-col items-center group hover:border-app-primary/50 transition-colors shadow-sm relative overflow-hidden';
+
+      card.innerHTML = `
+        <div class="w-full flex justify-between items-center mb-3 gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-app-muted bg-app-panel px-2 py-1 rounded shrink-0">
+            ${pattern.length} Dots
+          </span>
+          <span class="font-mono text-xs font-bold text-white tracking-tighter truncate">${pattern.join('→')}</span>
+        </div>
+        
+        <canvas class="card-canvas w-[140px] h-[140px] bg-[#050507] rounded-xl border border-app-border/60 shadow-inner mb-4" width="280" height="280"></canvas>
+        
+        <div class="w-full grid grid-cols-2 gap-2 mt-auto relative z-10">
+          <button class="btn-discard py-2 rounded-xl bg-app-panel hover:bg-app-border text-app-muted hover:text-white text-xs font-bold transition flex items-center justify-center gap-1.5 border border-app-border">
+            <i class="fa-regular fa-eye-slash"></i> Hide
+          </button>
+          <button class="btn-fail py-2 rounded-xl bg-app-primary/10 hover:bg-app-primary/20 text-app-primary border border-app-primary/30 text-xs font-bold transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-play text-[10px]"></i> Try / Fail
+          </button>
+        </div>
+      `;
+
+      const canvas = card.querySelector('canvas.card-canvas');
+      card.querySelector('.btn-discard').addEventListener('click', () => handleDiscard(seqStr, card));
+      card.querySelector('.btn-fail').addEventListener('click', () => handleFail(seqStr, card));
+
+      return { card, canvas, pattern };
+    }
+
+    function animateCardRemoval(card, callback) {
+      card.classList.add('animate-fade-out', 'pointer-events-none');
+      setTimeout(() => {
+        if (card.parentNode) card.parentNode.removeChild(card);
+        callback();
+      }, 250);
+    }
+
+    function handleDiscard(seqStr, card) {
+      if (!discardedSet.has(seqStr)) {
+        appState.discarded.unshift(seqStr);
+        saveState();
+      }
+      animateCardRemoval(card, () => {
+        galleryCount = Math.max(0, galleryCount - 1);
+        badgeGalleryCount.textContent = galleryCount.toLocaleString();
+        showToast(`Pattern ${seqStr} hidden`, 'info');
+        if (isSentinelVisible()) loadNextGalleryBatch();
+      });
+    }
+
+    function handleFail(seqStr, card) {
+      if (!failedSet.has(seqStr)) {
+        appState.failed.unshift(seqStr);
+      }
+      triggerCooldown(60);
+      saveState();
+      
+      animateCardRemoval(card, () => {
+        galleryCount = Math.max(0, galleryCount - 1);
+        badgeGalleryCount.textContent = galleryCount.toLocaleString();
+        showToast(`Marked ${seqStr} failed! 60m Lockout started.`, 'danger');
+        if (isSentinelVisible()) loadNextGalleryBatch();
+      });
+    }
+
+    /* ==========================================================================
+       5. UI LOGIC: DASHBOARD & COOLDOWN
+       ========================================================================== */
+    const countFailed = document.getElementById('countFailed');
+    const countDiscarded = document.getElementById('countDiscarded');
+    const viewFailed = document.getElementById('viewFailed');
+    const viewDiscarded = document.getElementById('viewDiscarded');
+    
+    const mainCooldownWidget = document.getElementById('mainCooldownWidget');
+    const mainCooldownIcon = document.getElementById('mainCooldownIcon');
+    const mainCooldownTime = document.getElementById('mainCooldownTime');
+    const mainCooldownText = document.getElementById('mainCooldownText');
+    const btnManualLock = document.getElementById('btnManualLock');
+    const btnClearLock = document.getElementById('btnClearLock');
+    
+    const headerTimerText = document.getElementById('headerTimerText');
+    const headerTimerIcon = document.getElementById('headerTimerIcon');
+    const headerCooldown = document.getElementById('headerCooldown');
+
+    function triggerCooldown(minutes) {
+      appState.cooldownEnd = Date.now() + (minutes * 60 * 1000);
+      saveState();
+      updateCooldownDisplay(true);
+    }
+
+    function restorePattern(seqStr, type) {
+      if (type === 'failed') {
+        appState.failed = appState.failed.filter(s => s !== seqStr);
+      } else {
+        appState.discarded = appState.discarded.filter(s => s !== seqStr);
+      }
+      saveState();
+      resetAndFilterGallery();
+      showToast(`Pattern ${seqStr} restored to gallery`, 'success');
+    }
+
+    function updateDashboardUI() {
+      countFailed.textContent = appState.failed.length;
+      countDiscarded.textContent = appState.discarded.length;
+
+      viewFailed.innerHTML = appState.failed.length
+        ? ''
+        : `<p class="text-xs text-app-muted text-center py-4">No failed attempts recorded.</p>`;
+
+      appState.failed.forEach(seq => {
+        const div = document.createElement('div');
+        div.className = 'bg-app-danger/10 border border-app-danger/20 rounded-lg p-2.5 flex justify-between items-center gap-2';
+        div.innerHTML = `
+          <span class="font-mono font-bold text-app-danger text-sm tracking-widest">${seq}</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-app-danger/70 uppercase font-bold px-2 py-0.5 bg-app-danger/10 rounded">Failed</span>
+            <button class="btn-restore text-xs text-app-muted hover:text-white px-2 py-1 rounded bg-app-bg/60 border border-app-border transition" title="Restore to Gallery">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
+        `;
+        div.querySelector('.btn-restore').addEventListener('click', () => restorePattern(seq, 'failed'));
+        viewFailed.appendChild(div);
+      });
+
+      viewDiscarded.innerHTML = appState.discarded.length
+        ? ''
+        : `<p class="text-xs text-app-muted text-center py-4">No patterns hidden.</p>`;
+
+      appState.discarded.forEach(seq => {
+        const div = document.createElement('div');
+        div.className = 'bg-app-panel border border-app-border rounded-lg p-2.5 flex justify-between items-center gap-2';
+        div.innerHTML = `
+          <span class="font-mono text-app-muted text-sm tracking-widest">${seq}</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-app-muted uppercase font-bold px-2 py-0.5 bg-app-bg border border-app-border rounded">Hidden</span>
+            <button class="btn-restore text-xs text-app-muted hover:text-white px-2 py-1 rounded bg-app-bg border border-app-border transition" title="Unhide Pattern">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
+        `;
+        div.querySelector('.btn-restore').addEventListener('click', () => restorePattern(seq, 'discarded'));
+        viewDiscarded.appendChild(div);
+      });
+    }
+
+    let lastTimerStr = '';
+    let lastLockedState = null;
+
+    function updateCooldownDisplay(force = false) {
+      const remainMs = appState.cooldownEnd - Date.now();
+      const isLocked = remainMs > 0;
+
+      if (isLocked) {
+        const totalSec = Math.ceil(remainMs / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        const text = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+        if (text !== lastTimerStr || force) {
+          mainCooldownTime.textContent = text;
+          headerTimerText.textContent = text;
+          lastTimerStr = text;
+        }
+
+        if (lastLockedState !== true || force) {
+          lastLockedState = true;
+          mainCooldownTime.classList.remove('text-white');
+          mainCooldownTime.classList.add('text-app-danger');
+          mainCooldownIcon.className = 'fa-solid fa-lock text-3xl text-app-danger mb-3 animate-pulse-fast';
+          mainCooldownWidget.classList.add('border-app-danger/40', 'bg-app-danger/5');
+          mainCooldownText.textContent = "Safe folder is currently locked.";
+          btnManualLock.disabled = true;
+          btnManualLock.classList.add('opacity-50', 'cursor-not-allowed');
+          btnClearLock.classList.remove('hidden');
+          btnClearLock.classList.add('flex');
+
+          headerTimerText.classList.remove('text-app-success');
+          headerTimerText.classList.add('text-app-danger');
+          headerTimerIcon.className = 'fa-solid fa-spinner animate-spin text-app-danger';
+          headerCooldown.classList.add('border-app-danger/30');
+        }
+      } else if (lastLockedState !== false || force) {
+        lastLockedState = false;
+        lastTimerStr = 'READY';
+        mainCooldownTime.textContent = "READY";
+        mainCooldownTime.classList.remove('text-app-danger');
+        mainCooldownTime.classList.add('text-white');
+        mainCooldownIcon.className = 'fa-solid fa-unlock-keyhole text-3xl text-app-success mb-3';
+        mainCooldownWidget.classList.remove('border-app-danger/40', 'bg-app-danger/5');
+        mainCooldownText.textContent = "You can test a pattern now.";
+        btnManualLock.disabled = false;
+        btnManualLock.classList.remove('opacity-50', 'cursor-not-allowed');
+        btnClearLock.classList.add('hidden');
+        btnClearLock.classList.remove('flex');
+
+        headerTimerText.textContent = "Ready";
+        headerTimerText.classList.remove('text-app-danger');
+        headerTimerText.classList.add('text-app-success');
+        headerTimerIcon.className = 'fa-solid fa-clock text-app-muted';
+        headerCooldown.classList.remove('border-app-danger/30');
+      }
+    }
+
+    // Dashboard Tabs (using currentTarget to avoid child span click bug)
+    const tabFailedBtn = document.getElementById('tabFailed');
+    const tabDiscardedBtn = document.getElementById('tabDiscarded');
+
+    tabFailedBtn.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.classList.add('border-app-danger', 'text-white');
+      btn.classList.remove('border-transparent', 'text-app-muted');
+      tabDiscardedBtn.classList.remove('border-app-primary', 'text-white');
+      tabDiscardedBtn.classList.add('border-transparent', 'text-app-muted');
+      viewFailed.classList.remove('hidden');
+      viewDiscarded.classList.add('hidden');
+    });
+
+    tabDiscardedBtn.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.classList.add('border-app-primary', 'text-white');
+      btn.classList.remove('border-transparent', 'text-app-muted');
+      tabFailedBtn.classList.remove('border-app-danger', 'text-white');
+      tabFailedBtn.classList.add('border-transparent', 'text-app-muted');
+      viewDiscarded.classList.remove('hidden');
+      viewFailed.classList.add('hidden');
+    });
+
+    btnManualLock.addEventListener('click', () => {
+      triggerCooldown(60);
+      showToast("Manual 60-minute lockout triggered.", "warning");
+    });
+
+    btnClearLock.addEventListener('click', () => {
+      appState.cooldownEnd = 0;
+      saveState();
+      updateCooldownDisplay(true);
+      showToast("Cooldown timer cleared.", "success");
+    });
+
+    document.getElementById('btnResetHistory').addEventListener('click', () => {
+      appState.failed = [];
+      appState.discarded = [];
+      appState.cooldownEnd = 0;
+      saveState();
+      updateCooldownDisplay(true);
+      resetAndFilterGallery();
+      showToast("History wiped. All patterns unhidden.", "success");
+    });
+
+    /* ==========================================================================
+       6. UI LOGIC: LEFT PANEL FILTERS & MATRIX
+       ========================================================================== */
+    const rMin = document.getElementById('rangeMin');
+    const rMax = document.getElementById('rangeMax');
+    const lblLen = document.getElementById('lengthDisplay');
+
+    function syncLengths(e) {
+      let mn = parseInt(rMin.value, 10);
+      let mx = parseInt(rMax.value, 10);
+      if (mn > mx) {
+        if (e && e.target === rMin) {
+          rMax.value = mn;
+          mx = mn;
+        } else {
+          rMin.value = mx;
+          mn = mx;
+        }
+      }
+      lblLen.textContent = mn === mx ? `${mn}` : `${mn}-${mx}`;
+      filters.minLen = mn;
+      filters.maxLen = mx;
+      resetAndFilterGallery();
+    }
+    rMin.addEventListener('input', syncLengths);
+    rMax.addEventListener('input', syncLengths);
+
+    const matrixBtns = document.querySelectorAll('.matrix-btn');
+    matrixBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dot = parseInt(btn.getAttribute('data-dot'), 10);
+        if (filters.mustInclude.has(dot)) {
+          filters.mustInclude.delete(dot);
+          filters.mustExclude.add(dot);
+          btn.className = "matrix-btn grid-node state-exclude aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm";
+        } else if (filters.mustExclude.has(dot)) {
+          filters.mustExclude.delete(dot);
+          btn.className = "matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110";
+        } else {
+          filters.mustInclude.add(dot);
+          btn.className = "matrix-btn grid-node state-include aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm";
+        }
+        resetAndFilterGallery();
+      });
+    });
+
+    document.getElementById('btnResetMatrix').addEventListener('click', () => {
+      filters.mustInclude.clear();
+      filters.mustExclude.clear();
+      matrixBtns.forEach(btn => {
+        btn.className = "matrix-btn grid-node state-neutral aspect-square rounded-xl text-sm font-mono font-bold flex items-center justify-center cursor-pointer select-none shadow-sm hover:brightness-110";
+      });
+      resetAndFilterGallery();
+    });
+
+    /* ==========================================================================
+       7. SKETCH PAD LOGIC
+       ========================================================================== */
+    const sketchCanvas = document.getElementById('sketchCanvas');
+    const sketchLabel = document.getElementById('sketchSequenceLabel');
+    const sketchMatchType = document.getElementById('sketchMatchType');
+    const SKETCH_SIZE = 220;
+    let sketchDrawn = [];
+    let sketchMask = 0;
+    let isDrawing = false;
+    let curPointer = null;
+
+    function getDotCenter(idx, size, pad) {
+      const col = (idx - 1) % 3;
+      const row = Math.floor((idx - 1) / 3);
+      const space = (size - 2 * pad) / 2;
+      return { x: pad + col * space, y: pad + row * space };
+    }
+
+    function renderSketch() {
+      const ctx = sketchCanvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      
+      if (sketchCanvas.width !== SKETCH_SIZE * dpr) {
+        sketchCanvas.width = SKETCH_SIZE * dpr;
+        sketchCanvas.height = SKETCH_SIZE * dpr;
+      }
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      const pad = SKETCH_SIZE * 0.18;
+      ctx.clearRect(0, 0, SKETCH_SIZE, SKETCH_SIZE);
+
+      // Draw Lines
+      if (sketchDrawn.length > 0) {
+        ctx.beginPath();
+        const p0 = getDotCenter(sketchDrawn[0], SKETCH_SIZE, pad);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < sketchDrawn.length; i++) {
+          const p = getDotCenter(sketchDrawn[i], SKETCH_SIZE, pad);
+          ctx.lineTo(p.x, p.y);
+        }
+        if (isDrawing && curPointer) {
+          ctx.lineTo(curPointer.x, curPointer.y);
+        }
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+
+      // Draw Dots
+      for (let i = 1; i <= 9; i++) {
+        const { x, y } = getDotCenter(i, SKETCH_SIZE, pad);
+        const visited = (sketchMask & (1 << i)) !== 0;
+        
+        if (visited) {
+          ctx.beginPath();
+          ctx.arc(x, y, 14, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, visited ? 6 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = visited ? '#6366f1' : '#52525b';
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function getLocalPointerPos(e) {
+      const rect = sketchCanvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (SKETCH_SIZE / rect.width),
+        y: (e.clientY - rect.top) * (SKETCH_SIZE / rect.height)
+      };
+    }
+
+    function getHitDot(pos) {
+      const pad = SKETCH_SIZE * 0.18;
+      for (let i = 1; i <= 9; i++) {
+        const { x, y } = getDotCenter(i, SKETCH_SIZE, pad);
+        if (Math.hypot(x - pos.x, y - pos.y) < 22) return i;
+      }
+      return null;
+    }
+
+    function handlePointerDown(e) {
+      if (e.target !== sketchCanvas) return;
+      e.preventDefault();
+      isDrawing = true;
+      sketchDrawn = [];
+      sketchMask = 0;
+      curPointer = getLocalPointerPos(e);
+      
+      const hit = getHitDot(curPointer);
+      if (hit) {
+        sketchDrawn.push(hit);
+        sketchMask |= (1 << hit);
+      }
+      renderSketch();
+    }
+
+    function handlePointerMove(e) {
+      if (!isDrawing) return;
+      curPointer = getLocalPointerPos(e);
+      
+      const hit = getHitDot(curPointer);
+      if (hit && (sketchMask & (1 << hit)) === 0) {
+        if (sketchDrawn.length === 0) {
+          sketchDrawn.push(hit);
+          sketchMask |= (1 << hit);
+        } else {
+          const prev = sketchDrawn[sketchDrawn.length - 1];
+          const mid = COLLINEAR_JUMPS[`${prev},${hit}`];
+          if (mid && (sketchMask & (1 << mid)) === 0) {
+            sketchDrawn.push(mid);
+            sketchMask |= (1 << mid);
+          }
+          sketchDrawn.push(hit);
+          sketchMask |= (1 << hit);
+        }
+      }
+      renderSketch();
+    }
+
+    function handlePointerUp() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      curPointer = null;
+      renderSketch();
+      
+      filters.sequence = sketchDrawn.join('');
+      sketchLabel.textContent = filters.sequence || '-';
+
+      // Auto-expand minLen if user drew a shorter sequence with Exact Match
+      if (filters.matchType === 'exact' && filters.sequence.length >= 4 && filters.sequence.length < filters.minLen) {
+        rMin.value = filters.sequence.length;
+        syncLengths();
+        return;
+      }
+      resetAndFilterGallery();
+    }
+
+    sketchCanvas.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    document.getElementById('btnClearSketch').addEventListener('click', () => {
+      sketchDrawn = [];
+      sketchMask = 0;
+      filters.sequence = '';
+      sketchLabel.textContent = '-';
+      renderSketch();
+      resetAndFilterGallery();
+    });
+
+    sketchMatchType.addEventListener('change', (e) => {
+      filters.matchType = e.target.value;
+      if (filters.sequence.length > 0) resetAndFilterGallery();
+    });
+
+    document.getElementById('btnRefreshGallery').addEventListener('click', resetAndFilterGallery);
+
+    /* ==========================================================================
+       8. UTILITIES (Canvas Drawing, Toast, Mobile Tabs)
+       ========================================================================== */
+    function renderPatternOnCanvas(canvas, pattern) {
+      const ctx = canvas.getContext('2d');
+      const size = 280;
+      const pad = size * 0.18;
+      
+      ctx.clearRect(0, 0, size, size);
+
+      // Background Grid Dots
+      for (let i = 1; i <= 9; i++) {
+        const { x, y } = getDotCenter(i, size, pad);
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#27272a';
+        ctx.fill();
+      }
+
+      if (!pattern || pattern.length === 0) return;
+
+      // Connecting Path Lines
+      ctx.beginPath();
+      const start = getDotCenter(pattern[0], size, pad);
+      ctx.moveTo(start.x, start.y);
+      for (let i = 1; i < pattern.length; i++) {
+        const pt = getDotCenter(pattern[i], size, pad);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // Highlight Active Nodes & Step Numbers
+      pattern.forEach((dot, idx) => {
+        const { x, y } = getDotCenter(dot, size, pad);
+        const isFirst = idx === 0;
+        const isLast = idx === pattern.length - 1;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = isFirst ? '#10b981' : (isLast ? '#3b82f6' : '#18181b');
+        ctx.fill();
+        ctx.strokeStyle = isFirst ? '#10b981' : (isLast ? '#60a5fa' : '#6366f1');
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(idx + 1), x, y + 0.5);
+      });
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const div = document.createElement('div');
+      
+      const colors = {
+        info: 'bg-[#18181b] border-[#27272a] text-white',
+        success: 'bg-[#064e3b] border-[#047857] text-[#34d399]',
+        danger: 'bg-[#7f1d1d] border-[#b91c1c] text-[#fca5a5]',
+        warning: 'bg-[#78350f] border-[#b45309] text-[#fbbf24]'
+      };
+      
+      div.className = `px-4 py-3 rounded-xl border shadow-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transform transition-all duration-300 translate-y-8 opacity-0 ${colors[type] || colors.info}`;
+      div.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span>${msg}</span>`;
+      
+      container.appendChild(div);
+      
+      requestAnimationFrame(() => {
+        div.classList.remove('translate-y-8', 'opacity-0');
+      });
+      
+      setTimeout(() => {
+        div.classList.add('opacity-0', 'translate-y-4');
+        setTimeout(() => div.remove(), 300);
+      }, 3000);
+    }
+
+    // Mobile Tabs Logic
+    const panelFilters = document.getElementById('panelFilters');
+    const panelGallery = document.getElementById('panelGallery');
+    const panelDashboard = document.getElementById('panelDashboard');
+    let activeMobileTab = 'gallery';
+
+    function updateMobileLayout() {
+      if (window.innerWidth >= 768) {
+        // Desktop layout: all 3 panels visible side-by-side
+        panelFilters.classList.remove('-translate-x-full', 'translate-x-0');
+        panelDashboard.classList.remove('translate-x-full', 'translate-x-0');
+        panelGallery.classList.remove('hidden');
+        panelGallery.classList.add('flex');
+      } else {
+        // Mobile layout: show only active tab panel
+        if (activeMobileTab === 'filters') {
+          panelFilters.classList.remove('-translate-x-full');
+          panelFilters.classList.add('translate-x-0');
+          panelDashboard.classList.remove('translate-x-0');
+          panelDashboard.classList.add('translate-x-full');
+          panelGallery.classList.add('hidden');
+          panelGallery.classList.remove('flex');
+        } else if (activeMobileTab === 'dashboard') {
+          panelDashboard.classList.remove('translate-x-full');
+          panelDashboard.classList.add('translate-x-0');
+          panelFilters.classList.remove('translate-x-0');
+          panelFilters.classList.add('-translate-x-full');
+          panelGallery.classList.add('hidden');
+          panelGallery.classList.remove('flex');
+        } else {
+          // Gallery
+          panelFilters.classList.remove('translate-x-0');
+          panelFilters.classList.add('-translate-x-full');
+          panelDashboard.classList.remove('translate-x-0');
+          panelDashboard.classList.add('translate-x-full');
+          panelGallery.classList.remove('hidden');
+          panelGallery.classList.add('flex');
+        }
+      }
+    }
+
+    document.querySelectorAll('#mobileTabs button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const targetBtn = e.currentTarget;
+        activeMobileTab = targetBtn.getAttribute('data-tab');
+        document.querySelectorAll('#mobileTabs button').forEach(b => b.classList.remove('tab-active'));
+        targetBtn.classList.add('tab-active');
+        updateMobileLayout();
+      });
+    });
+
+    window.addEventListener('resize', updateMobileLayout);
+
+    /* ==========================================================================
+       INITIALIZATION
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      updateDashboardUI();
+      renderSketch();
+      updateMobileLayout();
+      updateCooldownDisplay(true);
+      setInterval(() => updateCooldownDisplay(false), 250);
+      resetAndFilterGallery();
+    });
+  </script>
+</body>
+</html>
